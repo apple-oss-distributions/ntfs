@@ -57,25 +57,6 @@
  *	@(#)mntopts.h	8.7 (Berkeley) 3/29/95
  */
 
-#ifdef linux
-#define MNT_RDONLY      0x00000001      /* read only filesystem */
-#define MNT_SYNCHRONOUS 0x00000002      /* file system written synchronously */
-#define MNT_NOEXEC      0x00000004      /* can't exec from filesystem */
-#define MNT_NOSUID      0x00000008      /* don't honor setuid bits on fs */
-#define MNT_NODEV       0x00000010      /* don't interpret special files */
-#define MNT_UNION       0x00000020      /* union with underlying filesystem */
-#define MNT_ASYNC       0x00000040      /* file system written asynchronously */
-
-#define FS_OPTTIME 0       /* minimize allocation time */
-#define MINFREE         5
-#define DEFAULTOPT      FS_OPTTIME
-#define BBSIZE          8192
-#define SBSIZE          8192
-
-#define MINBSIZE        4096
-#define FS_OPTSPACE        1       /* minimize disk fragmentation */
-#endif
-
 struct mntopt {
 	const char *m_option;	/* option name */
 	int m_inverse;		/* if a negative option, eg "dev" */

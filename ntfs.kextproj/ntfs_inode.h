@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 /*	$NetBSD: ntfs_inode.h,v 1.8 1999/10/31 19:45:26 jdolecek Exp $	*/
 
 /*-
@@ -38,28 +62,24 @@
 #define	IN_EXLOCK	0x0040	/* File has exclusive lock. */
 #define	IN_LAZYMOD	0x0080	/* Modified, but don't write yet. */
 #define	IN_HASHED	0x0800	/* Inode is on hash list */
-#define	IN_LOADED	0x8000	/* ntvattrs loaded */
+#define IN_ALLOC	0x1000	/* inode is being allocated and initialized */
+#define IN_WALLOC	0x2000	/* someone is waiting for alloc/init to finish */
 #define	IN_PRELOADED	0x4000	/* loaded from directory entry */
+#define	IN_LOADED	0x8000	/* ntvattrs loaded */
 
 struct ntnode {
-	struct vnode   *i_devvp;	/* vnode of blk dev we live on */
+	lck_attr_t		*i_lock_attr;
+	lck_mtx_t		*i_lock;
+
+	vnode_t			i_devvp;	/* vnode of blk dev we live on */
 	dev_t           i_dev;		/* Device associated with the inode. */
 
 	LIST_ENTRY(ntnode)	i_hash;
-	struct ntnode  *i_next;
-	struct ntnode **i_prev;
 	struct ntfsmount       *i_mp;
 	ino_t           i_number;
 	u_int32_t       i_flag;
 
 	/* locking */
-#ifdef APPLE
-	struct lock__bsd__ i_lock;
-	struct slock i_interlock;
-#else
-	struct lock	i_lock;
-	struct mtx	i_interlock;
-#endif
 	int		i_usecount;
 
 	LIST_HEAD(,fnode)	i_fnlist;
@@ -73,15 +93,11 @@ struct ntnode {
 #define	FN_PRELOADED	0x0001
 #define	FN_VALID	0x0002
 #define	FN_AATTRNAME	0x0004	/* space allocated for f_attrname */
-struct fnode {
-#ifdef APPLE
-	struct lock__bsd__ f_lock;	/* fnode lock >Keep this first< */
-#else
-	struct lock	f_lock;	/* fnode lock >Keep this first< */
-#endif	
+#define FN_NONRESIDENT	0x0008	/* attribute is non-resident (uses run list) */
 
+struct fnode {
 	LIST_ENTRY(fnode) f_fnlist;
-	struct vnode   *f_vp;		/* Associatied vnode */
+	vnode_t			f_vp;		/* Associatied vnode */
 	struct ntnode  *f_ip;		/* Associated ntnode */
 	u_long		f_flag;
 
@@ -101,6 +117,8 @@ struct fnode {
 	u_int32_t       f_lastdnum;
 	caddr_t         f_dirblbuf;
 	u_int32_t       f_dirblsz;
+	
+	size_t			f_compsize;		/* Bytes per compression unit; 0 if not compressed */
 };
 
 /* This overlays the fid structure (see <sys/mount.h>) */
