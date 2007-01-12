@@ -336,16 +336,21 @@ ntfs_loadntnode(
 	      proc_t p)
 {
 	struct filerec  *mfrp;
+	size_t		bufsize;
 	daddr_t         bn;
 	int		error,off;
 	struct attr    *ap;
 	struct ntvattr *nvap;
+	uint32_t	reclen;
 
 	dprintf(("ntfs_loadntnode: loading ino: %d\n",ip->i_number));
 
         /* Allocate space for a single MFT record */
-	mfrp = OSMalloc(ntfs_bntob(ntmp->ntm_bpmftrec), ntfs_malloc_tag);
-
+        bufsize = ntfs_bntob(ntmp->ntm_bpmftrec);
+	mfrp = OSMalloc(bufsize, ntfs_malloc_tag);
+	if (mfrp == NULL)
+		return ENOMEM;
+	
 	if (ip->i_number < NTFS_SYSNODESNUM) {
 		struct buf     *bp;
 
@@ -357,7 +362,7 @@ ntfs_loadntnode(
 
 		/* Read in ip's MFT record */
 		error = (int)buf_meta_bread(ntmp->ntm_devvp,
-				       bn, ntfs_bntob(ntmp->ntm_bpmftrec),
+				       bn, bufsize,
 				       NOCRED, &bp);	/*¥ NOCRED */
 		if (error) {
 			printf("ntfs_loadntnode: BREAD FAILED\n");
@@ -365,7 +370,7 @@ ntfs_loadntnode(
 			goto out;
 		}
 		/* Copy the MFT record (little endian) */
-		memcpy(mfrp, (char *)buf_dataptr(bp), ntfs_bntob(ntmp->ntm_bpmftrec));
+		memcpy(mfrp, (char *)buf_dataptr(bp), bufsize);
 		buf_brelse(bp);
 	} else {
 		vnode_t vp;
@@ -374,8 +379,8 @@ ntfs_loadntnode(
 		
 		/* Read the MFT record (little endian) */
 		error = ntfs_readattr(ntmp, VTONT(vp), NTFS_A_DATA, NULL,
-			       ip->i_number * ntfs_bntob(ntmp->ntm_bpmftrec),
-			       ntfs_bntob(ntmp->ntm_bpmftrec), mfrp, NULL, p);
+			       ip->i_number * bufsize,
+			       bufsize, mfrp, NULL, p);
 		if (error) {
 			printf("ntfs_loadntnode: ntfs_readattr failed\n");
 			goto out;
@@ -383,8 +388,7 @@ ntfs_loadntnode(
 	}
 
 	/* Check if magic and fixups are correct */
-	error = ntfs_procfixups(ntmp, NTFS_FILEMAGIC, (caddr_t)mfrp,
-				ntfs_bntob(ntmp->ntm_bpmftrec));
+	error = ntfs_procfixups(ntmp, NTFS_FILEMAGIC, (caddr_t)mfrp, bufsize);
 	if (error) {
 		printf("ntfs_loadntnode: BAD MFT RECORD %d\n",
 		       (u_int32_t) ip->i_number);
@@ -393,6 +397,12 @@ ntfs_loadntnode(
 
 	dprintf(("ntfs_loadntnode: load attrs for ino: %d\n",ip->i_number));
 	off = le16toh(mfrp->fr_attroff);
+	if (off > bufsize) {
+		printf("ntfs_loadntnode: offset of first attribute too big "
+			"(MFT record #%d, offset %d)\n", ip->i_number, off);
+		error = EIO;
+		goto out;
+	}
 	ap = (struct attr *) ((caddr_t)mfrp + off);
 
 	LIST_INIT(&ip->i_valist);
@@ -405,7 +415,15 @@ ntfs_loadntnode(
 
 		LIST_INSERT_HEAD(&ip->i_valist, nvap, va_list);
 
-		off += le32toh(ap->a_hdr.reclen);
+		reclen = le32toh(ap->a_hdr.reclen);
+		if (reclen > bufsize || off+reclen > bufsize) {
+			printf("ntfs_loadntnode: attribute too big "
+				"(MFT record #%d, offset %d, size %u)\n",
+				ip->i_number, off, reclen);
+			error = EIO;
+			goto out;
+		}
+		off += reclen;
 		ap = (struct attr *) ((caddr_t)mfrp + off);
 	}
 	if (error) {
@@ -421,7 +439,7 @@ ntfs_loadntnode(
 	ip->i_flag |= IN_LOADED;
 
 out:
-	OSFree(mfrp, ntfs_bntob(ntmp->ntm_bpmftrec), ntfs_malloc_tag);
+	OSFree(mfrp, bufsize, ntfs_malloc_tag);
 	return (error);
 }
 		
