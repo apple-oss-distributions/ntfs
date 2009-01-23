@@ -1,5 +1,5 @@
 /*
- * ntfs_debug.h - Defines for NTFS kernel debug support.
+ * ntfs_collate.h - Defines for collation handling in the NTFS kernel driver.
  *
  * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
  * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
@@ -35,55 +35,31 @@
  * http://developer.apple.com/opensource/licenses/gpl-2.txt.
  */
 
-#ifndef _OSX_NTFS_DEBUG_H
-#define _OSX_NTFS_DEBUG_H
+#ifndef _OSX_NTFS_COLLATE_H
+#define _OSX_NTFS_COLLATE_H
 
-#include <sys/cdefs.h>
+#include "ntfs_layout.h"
+#include "ntfs_types.h"
+#include "ntfs_volume.h"
 
-#include "ntfs_runlist.h"
+static inline BOOL ntfs_is_collation_rule_supported(COLLATION_RULE cr) {
+	int i;
 
-/* Forward declaration so we do not have to include <sys/mount.h> here. */
-struct mount;
+	/*
+	 * TODO: We support everything other than COLLATION_UNICODE_STRING at
+	 * present but we do a range check in case new collation rules turn up
+	 * in later ntfs releases.
+	 */
+	if (cr == COLLATION_UNICODE_STRING)
+		return FALSE;
+	i = le32_to_cpu(cr);
+	if (((i >= 0) && (i <= 0x02)) || ((i >= 0x10) && (i <= 0x13)))
+		return TRUE;
+	return FALSE;
+}
 
-__private_extern__ void ntfs_debug_init(void);
-__private_extern__ void ntfs_debug_deinit(void);
+__private_extern__ int ntfs_collate(ntfs_volume *vol, COLLATION_RULE cr,
+		const void *data1, const int data1_len,
+		const void *data2, const int data2_len);
 
-__private_extern__ void __ntfs_warning(const char *function,
-		struct mount *mp, const char *fmt, ...) __printflike(3, 4);
-#define ntfs_warning(mp, fmt, a...)	\
-		__ntfs_warning(__FUNCTION__, mp, fmt, ##a)
-
-__private_extern__ void __ntfs_error(const char *function,
-		struct mount *mp, const char *fmt, ...) __printflike(3, 4);
-#define ntfs_error(mp, fmt, a...)	\
-		__ntfs_error(__FUNCTION__, mp, fmt, ##a)
-
-#ifdef DEBUG
-
-/**
- * ntfs_debug - write a debug message to the console
- * @fmt:	a printf format string containing the message
- * @...:	the variables to substitute into @fmt
- *
- * ntfs_debug() writes a message to the console but only if the driver was
- * compiled with -DDEBUG.  Otherwise, the call turns into a NOP.
- */
-__private_extern__ void __ntfs_debug(const char *file, int line,
-		const char *function, const char *fmt, ...)
-		__printflike(4, 5);
-#define ntfs_debug(fmt, a...)		\
-		__ntfs_debug(__FILE__, __LINE__, __FUNCTION__, fmt, ##a)
-
-__private_extern__ void ntfs_debug_runlist_dump(const ntfs_runlist *rl);
-__private_extern__ void ntfs_debug_attr_list_dump(const u8 *al,
-		const unsigned size);
-
-#else /* !DEBUG */
-
-#define ntfs_debug(fmt, a...)			do {} while (0)
-#define ntfs_debug_runlist_dump(rl)		do {} while (0)
-#define ntfs_debug_attr_list_dump(al, size)	do {} while (0)
-
-#endif /* !DEBUG */
-
-#endif /* !_OSX_NTFS_DEBUG_H */
+#endif /* _OSX_NTFS_COLLATE_H */

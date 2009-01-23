@@ -1,5 +1,6 @@
 /*
- * ntfs_debug.h - Defines for NTFS kernel debug support.
+ * ntfs_lcnalloc.h - Defines for cluster (de)allocation in the NTFS kernel
+ *		     driver.
  *
  * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
  * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
@@ -35,55 +36,36 @@
  * http://developer.apple.com/opensource/licenses/gpl-2.txt.
  */
 
-#ifndef _OSX_NTFS_DEBUG_H
-#define _OSX_NTFS_DEBUG_H
+#ifndef _OSX_NTFS_LCNALLOC_H
+#define _OSX_NTFS_LCNALLOC_H
 
-#include <sys/cdefs.h>
+#include <sys/errno.h>
 
+#include <kern/locks.h>
+
+#include "ntfs_attr.h"
+#include "ntfs_inode.h"
 #include "ntfs_runlist.h"
+#include "ntfs_types.h"
+#include "ntfs_volume.h"
 
-/* Forward declaration so we do not have to include <sys/mount.h> here. */
-struct mount;
+typedef enum {
+	FIRST_ZONE	= 0,	/* For sanity checking. */
+	MFT_ZONE	= 0,	/* Allocate from $MFT zone. */
+	DATA_ZONE	= 1,	/* Allocate from $DATA zone. */
+	LAST_ZONE	= 1,	/* For sanity checking. */
+} NTFS_CLUSTER_ALLOCATION_ZONES;
 
-__private_extern__ void ntfs_debug_init(void);
-__private_extern__ void ntfs_debug_deinit(void);
+__private_extern__ errno_t ntfs_cluster_alloc(ntfs_volume *vol,
+		const VCN start_vcn, const s64 count, const LCN start_lcn,
+		const NTFS_CLUSTER_ALLOCATION_ZONES zone,
+		const BOOL is_extension, ntfs_runlist *runlist);
 
-__private_extern__ void __ntfs_warning(const char *function,
-		struct mount *mp, const char *fmt, ...) __printflike(3, 4);
-#define ntfs_warning(mp, fmt, a...)	\
-		__ntfs_warning(__FUNCTION__, mp, fmt, ##a)
+__private_extern__ errno_t ntfs_cluster_free_from_rl(ntfs_volume *vol,
+		ntfs_rl_element *rl, const VCN start_vcn, s64 count,
+		s64 *nr_freed);
+__private_extern__ errno_t ntfs_cluster_free(ntfs_inode *ni,
+		const VCN start_vcn, s64 count, ntfs_attr_search_ctx *ctx,
+		s64 *nr_freed);
 
-__private_extern__ void __ntfs_error(const char *function,
-		struct mount *mp, const char *fmt, ...) __printflike(3, 4);
-#define ntfs_error(mp, fmt, a...)	\
-		__ntfs_error(__FUNCTION__, mp, fmt, ##a)
-
-#ifdef DEBUG
-
-/**
- * ntfs_debug - write a debug message to the console
- * @fmt:	a printf format string containing the message
- * @...:	the variables to substitute into @fmt
- *
- * ntfs_debug() writes a message to the console but only if the driver was
- * compiled with -DDEBUG.  Otherwise, the call turns into a NOP.
- */
-__private_extern__ void __ntfs_debug(const char *file, int line,
-		const char *function, const char *fmt, ...)
-		__printflike(4, 5);
-#define ntfs_debug(fmt, a...)		\
-		__ntfs_debug(__FILE__, __LINE__, __FUNCTION__, fmt, ##a)
-
-__private_extern__ void ntfs_debug_runlist_dump(const ntfs_runlist *rl);
-__private_extern__ void ntfs_debug_attr_list_dump(const u8 *al,
-		const unsigned size);
-
-#else /* !DEBUG */
-
-#define ntfs_debug(fmt, a...)			do {} while (0)
-#define ntfs_debug_runlist_dump(rl)		do {} while (0)
-#define ntfs_debug_attr_list_dump(al, size)	do {} while (0)
-
-#endif /* !DEBUG */
-
-#endif /* !_OSX_NTFS_DEBUG_H */
+#endif /* !_OSX_NTFS_LCNALLOC_H */

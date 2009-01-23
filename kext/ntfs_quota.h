@@ -1,9 +1,9 @@
 /*
- * ntfs_upcase.h - Defines for default upcase table handling in the NTFS kernel
- *		   driver.
+ * ntfs_quota.h - Defines for quota ($Quota) handling in the NTFS kernel
+ *		  driver.
  *
- * Copyright (c) 2006, 2007 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006, 2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,12 +36,14 @@
  * http://developer.apple.com/opensource/licenses/gpl-2.txt.
  */
 
-#ifndef _OSX_NTFS_UPCASE_H
-#define _OSX_NTFS_UPCASE_H
+#ifndef _OSX_NTFS_QUOTA_H
+#define _OSX_NTFS_QUOTA_H
+
+#include <sys/errno.h>
 
 #include "ntfs_types.h"
+#include "ntfs_volume.h"
 
-__private_extern__ void ntfs_default_upcase_generate(ntfschar *uc,
-		int uc_size);
+__private_extern__ errno_t ntfs_quotas_mark_out_of_date(ntfs_volume *vol);
 
-#endif /* !_OSX_NTFS_UPCASE_H */
+#endif /* _OSX_NTFS_QUOTA_H */
