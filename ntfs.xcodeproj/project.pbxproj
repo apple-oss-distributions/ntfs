@@ -416,7 +416,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 72E40F84091CC03000674539 /* Build configuration list for PBXProject "ntfs" */;
 			compatibilityVersion = "Xcode 3.0";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 72E40F81091CC03000674539;
 			productRefGroup = 72E40FE8091CC3A900674539 /* Products */;
 			projectDirPath = "";
@@ -563,11 +570,8 @@
 		72E40F85091CC03000674539 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DEBUGGING_SYMBOLS = full;
@@ -604,11 +608,8 @@
 		72E40F86091CC03000674539 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DEBUGGING_SYMBOLS = full;
@@ -658,7 +659,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.0;
+				MODULE_VERSION = 3.8;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				STRIP_INSTALLED_PRODUCT = YES;
@@ -683,7 +684,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.0;
+				MODULE_VERSION = 3.8;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				STRIP_INSTALLED_PRODUCT = YES;
@@ -707,6 +708,7 @@
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs.util;
+				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
@@ -727,6 +729,7 @@
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs.util;
+				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
