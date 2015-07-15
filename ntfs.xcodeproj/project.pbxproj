@@ -118,7 +118,7 @@
 		72B3866F09277DE500DC8718 /* ntfs_endian.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_endian.h; sourceTree = "<group>"; };
 		72B3867009277DE500DC8718 /* ntfs_layout.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_layout.h; sourceTree = "<group>"; };
 		72B3867109277DE500DC8718 /* ntfs_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_types.h; sourceTree = "<group>"; };
-		72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = ntfs_vfsops.c; sourceTree = "<group>"; usesTabs = 1; };
+		72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_vfsops.c; sourceTree = "<group>"; usesTabs = 1; };
 		72D1E3EE097AFAA800A661AF /* ntfs_mft.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_mft.c; sourceTree = "<group>"; };
 		72D1E3EF097AFAA800A661AF /* ntfs_mft.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_mft.h; sourceTree = "<group>"; };
 		72D60B9A09766BEA00E0D450 /* ntfs_hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_hash.c; sourceTree = "<group>"; };
@@ -349,7 +349,6 @@
 				BE3E0A210AD9A1700054ACA0 /* Sources */,
 				BE3E0A220AD9A1700054ACA0 /* Frameworks */,
 				BE3E0A7A0AD9A2EA0054ACA0 /* CopyFiles */,
-				4DDA8CC3150E689B00631F4D /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -452,22 +451,6 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		4DDA8CC3150E689B00631F4D /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/ntfs.util",
-			);
-			outputPaths = (
-				"$(DSTROOT)$(FS_BUNDLE_PATH)/ntfs.util",
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_DIR}/ntfs.util ${DSTROOT}${FS_BUNDLE_PATH}/ntfs.util";
-			showEnvVarsInLog = 0;
-		};
 		4DDA8CC4150E68D800631F4D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -655,7 +638,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
 				GCC_NO_COMMON_BLOCKS = NO;
-				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					NAMEDSTREAMS,
 					DEBUG,
