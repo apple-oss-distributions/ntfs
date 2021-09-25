@@ -40,7 +40,6 @@
 #include <string.h>
 
 #include <libkern/libkern.h>
-#include <libkern/OSMalloc.h>
 
 #include <kern/debug.h>
 #include <kern/locks.h>
@@ -292,8 +291,7 @@ void ntfs_index_ctx_put_reuse_single(ntfs_index_context *ictx)
 	if (ictx->entry && ictx->is_locked)
 		ntfs_index_ctx_unlock(ictx);
 	if (ictx->entries)
-		OSFree(ictx->entries, ictx->max_entries * sizeof(INDEX_ENTRY*),
-				ntfs_malloc_tag);
+		IOFree(ictx->entries, ictx->max_entries * sizeof(INDEX_ENTRY*));
 }
 
 /**
@@ -363,7 +361,7 @@ static errno_t ntfs_index_get_entries(ntfs_index_context *ictx)
 	nr_entries = 0;
 	max_entries = ictx->max_entries;
 	/* Allocate memory for the index entry pointers in the index node. */
-	entries = OSMalloc(max_entries * sizeof(INDEX_ENTRY*), ntfs_malloc_tag);
+	entries = IOMallocZero(max_entries * sizeof(INDEX_ENTRY*));
 	if (!entries) {
 		ntfs_error(ictx->idx_ni->vol->mp, "Failed to allocate index "
 				"entry pointer array.");
@@ -411,7 +409,7 @@ static errno_t ntfs_index_get_entries(ntfs_index_context *ictx)
 	ntfs_debug("Done.");
 	return 0;
 err:
-	OSFree(entries, max_entries * sizeof(INDEX_ENTRY*), ntfs_malloc_tag);
+	IOFree(entries, max_entries * sizeof(INDEX_ENTRY*));
 	ntfs_error(ictx->idx_ni->vol->mp, "Corrupt index in inode 0x%llx.  "
 			"Run chkdsk.",
 			(unsigned long long)ictx->idx_ni->mft_no);
@@ -1691,7 +1689,7 @@ retry:
 		u8 *tmp, *al, *al_end;
 		unsigned al_entry_ofs;
 
-		tmp = OSMalloc(new_al_alloc, ntfs_malloc_tag);
+		tmp = IOMallocData(new_al_alloc);
 		if (!tmp) {
 			ntfs_error(vol->mp, "Not enough memory to extend "
 					"attribute list attribute of mft_no "
@@ -1710,7 +1708,7 @@ retry:
 					ni->attr_list_size - al_entry_ofs);
 		al_entry = ctx->al_entry = (ATTR_LIST_ENTRY*)(tmp +
 				al_entry_ofs);
-		OSFree(ni->attr_list, ni->attr_list_alloc, ntfs_malloc_tag);
+		IOFreeData(ni->attr_list, ni->attr_list_alloc);
 		ni->attr_list_alloc = new_al_alloc;
 		ni->attr_list = tmp;
 	} else if ((u8*)al_entry < ni->attr_list + ni->attr_list_size)
@@ -2339,8 +2337,7 @@ errno_t ntfs_index_move_root_to_allocation_block(ntfs_index_context *ictx)
 	if (!ir_ictx)
 		return ENOMEM;
     ir_ictx->max_entries = ictx->max_entries;
-	ir_ictx->entries = OSMalloc(ir_ictx->max_entries * sizeof(INDEX_ENTRY*),
-			ntfs_malloc_tag);
+	ir_ictx->entries = IOMallocZero(ir_ictx->max_entries * sizeof(INDEX_ENTRY*));
 	if (!ir_ictx->entries) {
 		err = ENOMEM;
 		goto err;
@@ -2383,7 +2380,7 @@ errno_t ntfs_index_move_root_to_allocation_block(ntfs_index_context *ictx)
 		bzero(ia, PAGE_SIZE);
 	} else {
 		/* Allocate a temporary buffer and zero it out. */
-		ia = OSMalloc(idx_ni->block_size, ntfs_malloc_tag);
+		ia = IOMallocData(idx_ni->block_size);
 		if (!ia) {
 			err = ENOMEM;
 			goto err;
@@ -2997,7 +2994,7 @@ update_ie_pointers:
 	 * allocated index block instead of the temporary one.
 	 */
 	memcpy(ia, ictx->ia, idx_ni->block_size);
-	OSFree(ictx->ia, idx_ni->block_size, ntfs_malloc_tag);
+	IOFreeData(ictx->ia, idx_ni->block_size);
 	ictx->entry = ie = (INDEX_ENTRY*)((u8*)ia +
 			((u8*)ictx->entry - (u8*)ictx->ia));
 	ictx->ia = ia;
@@ -3226,7 +3223,7 @@ ictx_err:
 				le32_to_cpu(actx->m->bytes_in_use);
 	if (!upl) {
 undo_alloc_err:
-		OSFree(ia, idx_ni->block_size, ntfs_malloc_tag);
+		IOFreeData(ia, idx_ni->block_size);
 	} else {
 		/* Destroy the page. */
 		ntfs_page_dump(idx_ni, upl, pl);

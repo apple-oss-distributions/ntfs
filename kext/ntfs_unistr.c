@@ -40,8 +40,7 @@
 #include <sys/utfconv.h>
 
 #include <string.h>
-
-#include <libkern/OSMalloc.h>
+#include <IOKit/IOLib.h>
 
 #include "ntfs_debug.h"
 #include "ntfs_endian.h"
@@ -260,8 +259,7 @@ void ntfs_upcase_name(ntfschar *name, u32 name_len, const ntfschar *upcase,
  * as described at http://support.microsoft.com/kb/q117258/.
  *
  * If *@outs is NULL, this function allocates the string and the caller is
- * responsible for calling OSFree(*@outs, *@outs_size, ntfs_malloc_tag); when
- * finished with it.
+ * responsible for calling IOFreeData(*@outs, *@outs_size); when finished with it.
  *
  * If *@outs is not NULL, it is used as the destination buffer and the caller
  * is responsible for having allocated a big enough buffer.  The minimum size
@@ -294,7 +292,7 @@ signed utf8_to_ntfs(const ntfs_volume *vol, const u8 *ins,
 	} else {
 		/* Allocate the maximum length NTFS string. */
 		ntfs_size = NTFS_MAX_NAME_LEN << NTFSCHAR_SIZE_SHIFT;
-		ntfs = OSMalloc(ntfs_size, ntfs_malloc_tag);
+		ntfs = IOMallocData(ntfs_size);
 		if (!ntfs) {
 			ntfs_error(vol->mp, "Failed to allocate memory for "
 					"output string.");
@@ -333,7 +331,7 @@ signed utf8_to_ntfs(const ntfs_volume *vol, const u8 *ins,
 	return res_size;
 err:
 	if (!*outs)
-		OSFree(ntfs, ntfs_size, ntfs_malloc_tag);
+		IOFreeData(ntfs, ntfs_size);
 	return -err;
 }
 
@@ -354,8 +352,7 @@ err:
  * http://support.microsoft.com/kb/q117258/.
  *
  * If *@outs is NULL, this function allocates the string and the caller is
- * responsible for calling OSFree(*@outs, *@outs_size, ntfs_malloc_tag); when
- * finished with it.
+ * responsible for calling IOFreeData(*@outs, *@outs_size); when finished with it.
  *
  * On success the function returns the number of bytes written to the output
  * string *@outs (>= 0), not counting the terminating NUL byte.  If the output
@@ -398,7 +395,7 @@ signed ntfs_to_utf8(const ntfs_volume *vol, const ntfschar *ins,
         }
 
         /* Allocate buffer for the converted string. */
-		utf8 = OSMalloc(utf8_size, ntfs_malloc_tag);
+		utf8 = IOMallocData(utf8_size);
 		if (!utf8) {
 			ntfs_error(vol->mp, "Failed to allocate memory for "
 					"output string.");
@@ -440,7 +437,7 @@ signed ntfs_to_utf8(const ntfs_volume *vol, const ntfschar *ins,
 	return res_size;
 err:
 	if (!*outs)
-		OSFree(utf8, utf8_size, ntfs_malloc_tag);
+		IOFreeData(utf8, utf8_size);
 	return -err;
 }
 

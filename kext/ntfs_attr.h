@@ -158,7 +158,7 @@ static inline void ntfs_attr_search_ctx_init(ntfs_attr_search_ctx *ctx,
 		.a = (ATTR_RECORD*)((u8*)m + le16_to_cpu(m->attrs_offset)),
 		.ni = ni,
 	};
-	ctx->m = m,
+    ctx->m = m;
 	ctx->is_first = 1;
 }
 

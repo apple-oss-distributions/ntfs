@@ -47,7 +47,7 @@
 #include <sys/vnode.h>
 
 #include <libkern/OSAtomic.h>
-#include <libkern/OSMalloc.h>
+#include <IOKit/IOLib.h>
 
 #include <kern/locks.h>
 
@@ -281,13 +281,13 @@ ntfs_inode *ntfs_inode_hash_get(ntfs_volume *vol, const ntfs_attr *na)
 		return ni;
 	}
 	/* Not found, allocate a new ntfs_inode and initialize it. */
-	nni = OSMalloc(sizeof(ntfs_inode), ntfs_malloc_tag);
+	nni = IOMallocType(ntfs_inode);
 	if (!nni) {
 		ntfs_error(vol->mp, "Failed to allocate new ntfs_inode.");
 		return nni;
 	}
 	if (ntfs_inode_init(vol, nni, na)) {
-		OSFree(nni, sizeof(ntfs_inode), ntfs_malloc_tag);
+		IOFreeType(nni, ntfs_inode);
 		ntfs_error(vol->mp, "Failed to initialize new ntfs_inode.");
 		return NULL;
 	}
@@ -313,7 +313,7 @@ retry:
 		ntfs_inode_wait_locked(ni, &ntfs_inode_hash_lock);
 		if (vn && vnode_getwithvid(vn, vn_id))
 			goto retry;
-		OSFree(nni, sizeof(ntfs_inode), ntfs_malloc_tag);
+		IOFreeType(nni, ntfs_inode);
 		ntfs_debug("Done (ntfs_inode found in cache - lost race)).");
 		return ni;
 	}

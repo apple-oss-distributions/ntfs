@@ -40,10 +40,11 @@
 #include <sys/ucred.h>
 #include <sys/ubc.h>
 
+#include <IOKit/IOLib.h>
+
 #include <string.h>
 
 #include <libkern/libkern.h>
-#include <libkern/OSMalloc.h>
 
 #include <kern/debug.h>
 #include <kern/sched_prim.h>
@@ -705,7 +706,8 @@ ntfs_attr_search_ctx *ntfs_attr_search_ctx_get(ntfs_inode *ni, MFT_RECORD *m)
 {
 	ntfs_attr_search_ctx *ctx;
 
-	ctx = OSMalloc(sizeof(ntfs_attr_search_ctx), ntfs_malloc_tag);
+    // Cannot use IOMallocType here - the ntfs_attr_search_ctx uses union with a pointer inside
+	ctx = IOMalloc(sizeof(ntfs_attr_search_ctx));
 	if (ctx)
 		ntfs_attr_search_ctx_init(ctx, ni, m);
 	return ctx;
@@ -722,7 +724,7 @@ void ntfs_attr_search_ctx_put(ntfs_attr_search_ctx *ctx)
 {
 	if (ctx->base_ni && ctx->ni != ctx->base_ni)
 		ntfs_extent_mft_record_unmap(ctx->ni);
-	OSFree(ctx, sizeof(ntfs_attr_search_ctx), ntfs_malloc_tag);
+	IOFree(ctx, sizeof(ntfs_attr_search_ctx));
 }
 
 /**
@@ -2668,7 +2670,7 @@ retry:
 		u8 *tmp, *al, *al_end;
 		unsigned al_entry_ofs;
 
-		tmp = OSMalloc(new_al_alloc, ntfs_malloc_tag);
+		tmp = IOMallocData(new_al_alloc);
 		if (!tmp) {
 			ntfs_error(vol->mp, "Not enough memory to extend "
 					"attribute list attribute of mft_no "
@@ -2687,7 +2689,7 @@ retry:
 					ni->attr_list_size - al_entry_ofs);
 		al_entry = ctx->al_entry = (ATTR_LIST_ENTRY*)(tmp +
 				al_entry_ofs);
-		OSFree(ni->attr_list, ni->attr_list_alloc, ntfs_malloc_tag);
+		IOFreeData(ni->attr_list, ni->attr_list_alloc);
 		ni->attr_list_alloc = new_al_alloc;
 		ni->attr_list = tmp;
 	} else if ((u8*)al_entry < ni->attr_list + ni->attr_list_size)
@@ -3711,7 +3713,7 @@ errno_t ntfs_attr_record_move(ntfs_attr_search_ctx *ctx)
 			(unsigned)le32_to_cpu(a->type));
 	attr_len = le32_to_cpu(a->length);
 	/* Allocate a temporary buffer to hold the attribute to be moved. */
-	a_copy = OSMalloc(attr_len, ntfs_malloc_tag);
+	a_copy = IOMallocData(attr_len);
 	if (!a_copy) {
 		ntfs_error(ni->vol->mp, "Not enough memory to allocate "
 				"temporary attribute buffer.");
@@ -3780,7 +3782,7 @@ errno_t ntfs_attr_record_move(ntfs_attr_search_ctx *ctx)
 				__FUNCTION__);
 	memcpy(a, a_copy, attr_len);
 	/* We do not need the temporary buffer any more. */
-	OSFree(a_copy, attr_len, ntfs_malloc_tag);
+	IOFreeData(a_copy, attr_len);
 	/*
 	 * Change the moved attribute record to reflect the new sequence number
 	 * and the current attribute list attribute entry to reflect the new
@@ -3875,7 +3877,7 @@ undo_delete:
 	/* Ensure the changes make it to disk later. */
 	NInoSetMrecNeedsDirtying(ni);
 err:
-	OSFree(a_copy, attr_len, ntfs_malloc_tag);
+	IOFreeData(a_copy, attr_len);
 	return err;
 }
 
@@ -4906,7 +4908,7 @@ is_compressed:
 		u8 *tmp, *al, *al_end;
 		unsigned al_entry_ofs;
 
-		tmp = OSMalloc(new_al_alloc, ntfs_malloc_tag);
+		tmp = IOMallocData(new_al_alloc);
 		if (!tmp) {
 			ntfs_error(vol->mp, "Not enough memory to extend the "
 					"attribute list attribute.");
@@ -4923,8 +4925,7 @@ is_compressed:
 					al_entry_ofs);
 		al_entry = ctx->al_entry = (ATTR_LIST_ENTRY*)(tmp +
 				al_entry_ofs);
-		OSFree(base_ni->attr_list, base_ni->attr_list_alloc,
-				ntfs_malloc_tag);
+		IOFreeData(base_ni->attr_list, base_ni->attr_list_alloc);
 		base_ni->attr_list_alloc = new_al_alloc;
 		base_ni->attr_list = tmp;
 	} else if ((u8*)al_entry < base_ni->attr_list +
@@ -5784,7 +5785,7 @@ undo_alloc:
 				"to recover the lost space.", err2);
 		NVolSetErrors(vol);
 	}
-	OSFree(runlist.rl, runlist.alloc, ntfs_malloc_tag);
+	IOFreeData(runlist.rl, runlist.alloc);
 	goto err;
 undo_sparse:
 	/*
@@ -6340,8 +6341,7 @@ do_non_resident_extend:
 	if ((ni->rl.elements + 2) * sizeof(*rl) > ni->rl.alloc) {
 		ntfs_rl_element *rl2;
 
-		rl2 = OSMalloc(ni->rl.alloc + NTFS_ALLOC_BLOCK,
-				ntfs_malloc_tag);
+		rl2 = IOMallocData(ni->rl.alloc + NTFS_ALLOC_BLOCK);
 		if (!rl2) {
 			err = ENOMEM;
 			goto err_out;
@@ -6352,7 +6352,7 @@ do_non_resident_extend:
 			rl = &rl2[ni->rl.elements - 1];
 		}
 		if (ni->rl.alloc)
-			OSFree(ni->rl.rl, ni->rl.alloc, ntfs_malloc_tag);
+			IOFreeData(ni->rl.rl, ni->rl.alloc);
 		ni->rl.rl = rl2;
 		ni->rl.alloc += NTFS_ALLOC_BLOCK;
 	}
@@ -6474,7 +6474,7 @@ skip_sparse:
 					"space.", err2);
 			NVolSetErrors(vol);
 		}
-		OSFree(runlist.rl, runlist.alloc, ntfs_malloc_tag);
+		IOFreeData(runlist.rl, runlist.alloc);
 		nr_allocated = 0;
 		goto trunc_err_out;
 	}
@@ -7079,7 +7079,7 @@ skip_mpa_build:
 			u8 *tmp, *al, *al_end;
 			unsigned al_entry_ofs;
 
-			tmp = OSMalloc(new_al_alloc, ntfs_malloc_tag);
+			tmp = IOMallocData(new_al_alloc);
 			if (!tmp) {
 				if (start < 0 || start >= alloc_size)
 					ntfs_error(vol->mp, "Cannot complete "
@@ -7108,8 +7108,7 @@ skip_mpa_build:
 						al_entry_ofs);
 			al_entry = actx->al_entry = (ATTR_LIST_ENTRY*)(tmp +
 					al_entry_ofs);
-			OSFree(base_ni->attr_list, base_ni->attr_list_alloc,
-					ntfs_malloc_tag);
+			IOFreeData(base_ni->attr_list, base_ni->attr_list_alloc);
 			base_ni->attr_list_alloc = new_al_alloc;
 			base_ni->attr_list = tmp;
 		} else if ((u8*)al_entry < base_ni->attr_list +

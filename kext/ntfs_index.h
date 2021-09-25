@@ -40,9 +40,9 @@
 
 #include <sys/errno.h>
 
-#include <libkern/OSMalloc.h>
-
 #include <kern/debug.h>
+
+#include <IOKit/IOLib.h>
 
 /* Foward declaration. */
 typedef struct _ntfs_index_context ntfs_index_context;
@@ -244,7 +244,8 @@ struct _ntfs_index_context {
  */
 static inline ntfs_index_context *ntfs_index_ctx_alloc(void)
 {
-	return OSMalloc(sizeof(ntfs_index_context), ntfs_malloc_tag);
+    // Cannot use IOMallocType here: the ntfs_index_context has unions with pointers inside
+    return IOMalloc(sizeof(ntfs_index_context));
 }
 
 /**
@@ -318,7 +319,7 @@ static inline void ntfs_index_ctx_disconnect(ntfs_index_context *ictx)
  */
 static inline void ntfs_index_ctx_free(ntfs_index_context *ictx)
 {
-	OSFree(ictx, sizeof(*ictx), ntfs_malloc_tag);
+    IOFree(ictx, sizeof(*ictx));
 }
 
 /**

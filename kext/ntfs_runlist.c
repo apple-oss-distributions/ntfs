@@ -41,10 +41,9 @@
 
 #include <string.h>
 
-#include <libkern/OSMalloc.h>
-
 #include <kern/debug.h>
 #include <kern/locks.h>
+#include <IOKit/IOLib.h>
 
 #include "ntfs.h"
 #include "ntfs_debug.h"
@@ -95,12 +94,12 @@ static errno_t ntfs_rl_inc(ntfs_runlist *runlist, unsigned delta)
 	if (new_alloc > alloc) {
 		ntfs_rl_element *new_rl;
 
-		new_rl = OSMalloc(new_alloc, ntfs_malloc_tag);
+		new_rl = IOMallocData(new_alloc);
 		if (!new_rl)
 			return ENOMEM;
 		ntfs_rl_copy(new_rl, runlist->rl, runlist->elements);
 		if (alloc)
-			OSFree(runlist->rl, alloc, ntfs_malloc_tag);
+			IOFreeData(runlist->rl, alloc);
 		runlist->rl = new_rl;
 		runlist->alloc = new_alloc;
 	}
@@ -168,14 +167,14 @@ static errno_t ntfs_rl_ins(ntfs_runlist *runlist, unsigned pos, unsigned count)
 	 * of the newly allocated array of runlist elements unless @pos is zero
 	 * in which case a single memcpy() is sufficient.
 	 */
-	new_rl = OSMalloc(new_alloc, ntfs_malloc_tag);
+	new_rl = IOMallocData(new_alloc);
 	if (!new_rl)
 		return ENOMEM;
 	ntfs_rl_copy(new_rl, runlist->rl, pos);
 	ntfs_rl_copy(new_rl + pos + count, runlist->rl + pos,
 			runlist->elements - pos);
 	if (alloc)
-		OSFree(runlist->rl, alloc, ntfs_malloc_tag);
+		IOFreeData(runlist->rl, alloc);
 	runlist->rl = new_rl;
 	runlist->elements = new_elements;
 	runlist->alloc = new_alloc;
@@ -620,7 +619,7 @@ errno_t ntfs_rl_merge(ntfs_runlist *dst_runlist, ntfs_runlist *src_runlist)
 	/* If the source runlist is empty, nothing to do. */
 	if (!s_elements) {
 		if (s_alloc)
-			OSFree(s_rl, s_alloc, ntfs_malloc_tag);
+			IOFreeData(s_rl, s_alloc);
 		goto done;
 	}
 	d_rl = dst_runlist->rl;
@@ -640,7 +639,7 @@ errno_t ntfs_rl_merge(ntfs_runlist *dst_runlist, ntfs_runlist *src_runlist)
 		}
 		/* Return the source runlist as the destination. */
 		if (d_alloc)
-			OSFree(d_rl, d_alloc, ntfs_malloc_tag);
+			IOFreeData(d_rl, d_alloc);
 		dst_runlist->rl = src_runlist->rl;
 		dst_runlist->elements = src_runlist->elements;
 		dst_runlist->alloc = src_runlist->alloc;
@@ -755,7 +754,7 @@ errno_t ntfs_rl_merge(ntfs_runlist *dst_runlist, ntfs_runlist *src_runlist)
 		return err;
 	}
 	/* Merged, can discard source runlist now. */
-	OSFree(s_rl, s_alloc, ntfs_malloc_tag);
+	IOFreeData(s_rl, s_alloc);
 	d_rl = dst_runlist->rl;
 	di = dst_runlist->elements - 1;
 	/* Deal with the end of attribute marker if @s_rl ended after @d_rl. */
@@ -900,7 +899,7 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 	rlpos = 0;
 	rlsize = NTFS_ALLOC_BLOCK;
 	/* Allocate NTFS_ALLOC_BLOCK bytes for the runlist. */
-	rl = OSMalloc(rlsize, ntfs_malloc_tag);
+	rl = IOMallocData(rlsize);
 	if (!rl)
 		return ENOMEM;
 	/* Insert unmapped starting element if necessary. */
@@ -918,14 +917,13 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 		if (((rlpos + 3) * sizeof(*rl)) > rlsize) {
 			ntfs_rl_element *rl2;
 
-			rl2 = OSMalloc(rlsize + NTFS_ALLOC_BLOCK,
-					ntfs_malloc_tag);
+			rl2 = IOMallocData(rlsize + NTFS_ALLOC_BLOCK);
 			if (!rl2) {
 				err = ENOMEM;
 				goto err;
 			}
 			memcpy(rl2, rl, rlsize);
-			OSFree(rl, rlsize, ntfs_malloc_tag);
+			IOFreeData(rl, rlsize);
 			rl = rl2;
 			rlsize += NTFS_ALLOC_BLOCK;
 		}
@@ -1056,7 +1054,7 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 	/* If no existing runlist was specified, we are done. */
 	if (!runlist->elements) {
 		if (runlist->alloc)
-			OSFree(runlist->rl, runlist->alloc, ntfs_malloc_tag);
+			IOFreeData(runlist->rl, runlist->alloc);
 		runlist->rl = rl;
 		runlist->elements = rlpos + 1;
 		runlist->alloc = rlsize;
@@ -1079,7 +1077,7 @@ errno_t ntfs_mapping_pairs_decompress(ntfs_volume *vol, const ATTR_RECORD *a,
 		ntfs_error(vol->mp, "Failed to merge runlists.");
 	}
 err:
-	OSFree(rl, rlsize, ntfs_malloc_tag);
+	IOFreeData(rl, rlsize);
 	return err;
 io_err:
 	ntfs_error(vol->mp, "Corrupt mapping pairs array in non-resident "
@@ -1642,10 +1640,10 @@ static void ntfs_rl_shrink(ntfs_runlist *runlist, unsigned new_elements)
 	if (new_alloc < alloc) {
 		ntfs_rl_element *new_rl;
 
-		new_rl = OSMalloc(new_alloc, ntfs_malloc_tag);
+		new_rl = IOMallocData(new_alloc);
 		if (new_rl) {
 			ntfs_rl_copy(new_rl, runlist->rl, new_elements);
-			OSFree(runlist->rl, alloc, ntfs_malloc_tag);
+			IOFreeData(runlist->rl, alloc);
 			runlist->rl = new_rl;
 			runlist->alloc = new_alloc;
 		} else
@@ -1702,7 +1700,7 @@ errno_t ntfs_rl_truncate_nolock(const ntfs_volume *vol,
 	if (!new_length) {
 		ntfs_debug("Freeing runlist.");
 		if (rl) {
-			OSFree(rl, runlist->alloc, ntfs_malloc_tag);
+			IOFreeData(rl, runlist->alloc);
 			runlist->rl = NULL;
 			runlist->alloc = runlist->elements = 0;
 		}
@@ -2123,7 +2121,6 @@ errno_t ntfs_rl_read(ntfs_volume *vol, ntfs_runlist *runlist, u8 *dst,
 {
 	u8 *dst_end = dst + initialized_size;
 	ntfs_rl_element *rl;
-	vnode_t dev_vn = vol->dev_vn;
 	buf_t buf;
 	errno_t err;
 	unsigned block_size = vol->sector_size;
@@ -2133,9 +2130,10 @@ errno_t ntfs_rl_read(ntfs_volume *vol, ntfs_runlist *runlist, u8 *dst,
 	ntfs_debug("Entering.");
 	if (!vol || !runlist || !dst || size <= 0 || initialized_size < 0 ||
 			initialized_size > size) {
-		ntfs_error(vol->mp, "Received invalid arguments.");
+        ntfs_error((vol ? vol->mp : NULL), "Received invalid arguments.");
 		return EINVAL;
 	}
+    vnode_t dev_vn = vol->dev_vn;
 	if (!initialized_size) {
 		bzero(dst, size);
 		ntfs_debug("Done (!initialized_size).");
@@ -2247,7 +2245,6 @@ errno_t ntfs_rl_write(ntfs_volume *vol, u8 *src, const s64 size,
 	VCN vcn;
 	u8 *src_end, *src_stop;
 	ntfs_rl_element *rl;
-	vnode_t dev_vn = vol->dev_vn;
 	errno_t err;
 	unsigned block_size, block_shift, cluster_shift, shift, delta, vcn_ofs;
 
@@ -2255,9 +2252,11 @@ errno_t ntfs_rl_write(ntfs_volume *vol, u8 *src, const s64 size,
 			(unsigned long long)size, (unsigned long long)ofs);
 	if (!vol || !src || size <= 0 || !runlist || !runlist->elements ||
 			ofs < 0 || cnt < 0 || ofs + cnt > size) {
-		ntfs_error(vol->mp, "Received invalid arguments.");
+        ntfs_error((vol ? vol->mp : NULL), "Received invalid arguments.");
 		return EINVAL;
 	}
+
+    vnode_t dev_vn = vol->dev_vn;
 	src_stop = src_end = src + size;
 	if (cnt) {
 		src_stop = src + ofs + cnt;
@@ -2381,15 +2380,15 @@ err:
 errno_t ntfs_rl_set(ntfs_volume *vol, const ntfs_rl_element *rl, const u8 val)
 {
 	VCN vcn;
-	vnode_t dev_vn = vol->dev_vn;
 	errno_t err;
 	unsigned block_size, shift;
 
 	ntfs_debug("Entering (val 0x%x).", (unsigned)val);
 	if (!vol || !rl || !rl->length) {
-		ntfs_error(vol->mp, "Received invalid arguments.");
+        ntfs_error((vol ? vol->mp : NULL), "Received invalid arguments.");
 		return EINVAL;
 	}
+    vnode_t dev_vn = vol->dev_vn;
 	block_size = vol->sector_size;
 	shift = vol->cluster_size_shift - vol->sector_size_shift;
 	/* Write the clusters specified by the runlist one at a time. */

@@ -42,8 +42,6 @@
 
 #include <sys/mount.h>
 
-#include <libkern/OSMalloc.h>
-
 #include <kern/locks.h>
 
 /* The email address of the NTFS developers. */
@@ -56,11 +54,6 @@ __attribute__((visibility("hidden"))) extern const char ntfs_please_email[];
  */
 __attribute__((visibility("hidden"))) extern lck_grp_t *ntfs_lock_grp;
 __attribute__((visibility("hidden"))) extern lck_attr_t *ntfs_lock_attr;
-
-/*
- * A tag for allocation and freeing of memory (defined in ntfs_vfsops.c).
- */
-__attribute__((visibility("hidden"))) extern OSMallocTag ntfs_malloc_tag;
 
 #include "ntfs_volume.h"
 

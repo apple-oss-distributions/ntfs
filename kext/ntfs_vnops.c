@@ -59,6 +59,7 @@
 #include <kern/locks.h>
 
 #include <vfs/vfs_support.h>
+#include <IOKit/IOLib.h>
 
 #include "ntfs.h"
 #include "ntfs_attr.h"
@@ -139,7 +140,7 @@ int ntfs_cluster_iodone(buf_t cbp, void *arg __unused)
 						(unsigned)ni->name_len);
 		}
 		/* The offset in the attribute at which this buffer begins. */
-		ofs = (s64)buf_lblkno(cbp) << PAGE_SHIFT;
+		ofs = (s64)buf_lblkno(cbp) << ni->block_size_shift;
 		lck_spin_lock(&ni->size_lock);
 		data_size = ni->data_size;
 		init_size = ni->initialized_size;
@@ -884,7 +885,7 @@ not_found:
 	if (mft_no < FILE_first_user) {
 		lck_rw_unlock_shared(&dir_ni->lock);
 		if (name)
-			OSFree(name, sizeof(*name), ntfs_malloc_tag);
+			IOFreeType(name, ntfs_dir_lookup_name);
 		ntfs_debug("Removing core NTFS system file (mft_no 0x%x) "
 				"from name space.", (unsigned)mft_no);
 		err = ENOENT;
@@ -919,14 +920,14 @@ not_found:
 			 * NULL because we use that fact to distinguish between
 			 * the DOS and WIN32/POSIX cases.
 			 */
-			OSFree(name, sizeof(*name), ntfs_malloc_tag);
+			IOFreeType(name, ntfs_dir_lookup_name);
 		} else {
 			signed res_size;
 
 			res_size = ntfs_to_utf8(vol, name->name, name->len <<
 					NTFSCHAR_SIZE_SHIFT, &utf8_name,
 					&utf8_size);
-			OSFree(name, sizeof(*name), ntfs_malloc_tag);
+			IOFreeType(name, ntfs_dir_lookup_name);
 			if (res_size < 0) {
 				lck_rw_unlock_shared(&dir_ni->lock);
 				/* Failed to convert name. */
@@ -961,7 +962,7 @@ not_found:
 	if (name_cn == &cn_buf) {
 		/* Pick up any modifications to the cn_flags. */
 		cn->cn_flags = cn_buf.cn_flags;
-		OSFree(utf8_name, utf8_size, ntfs_malloc_tag);
+		IOFreeData(utf8_name, utf8_size);
 	}
 	if (!err) {
 		/* Consistency check. */
@@ -1112,7 +1113,7 @@ handle_dos_name:
 	};
 	cache_enter(dir_ni->vn, vn, &cn_buf);
 	cn->cn_flags &= ~MAKEENTRY;
-	OSFree(utf8_name, utf8_size, ntfs_malloc_tag);
+	IOFreeData(utf8_name, utf8_size);
 	*a->a_vpp = ni->vn;
 	lck_rw_unlock_shared(&ni->lock);
 	ntfs_debug("Done (case 3).");
@@ -1197,7 +1198,7 @@ static errno_t ntfs_create(vnode_t dir_vn, vnode_t *vn,
 	 * that both mft records are in the same page.
 	 */
 	fn_alloc = sizeof(FILENAME_ATTR) + NTFS_MAX_NAME_LEN * sizeof(ntfschar);
-	fn = OSMalloc(fn_alloc, ntfs_malloc_tag);
+	fn = IOMallocData(fn_alloc);
 	if (!fn) {
 		ntfs_error(vol->mp, "Failed to allocate memory for temporary "
 				"filename attribute.");
@@ -1384,7 +1385,7 @@ again:
 			MK_LE_MREF(ni->mft_no, ni->seq_no));
 	if (!err) {
 		/* Free the temporary filename attribute. */
-		OSFree(fn, fn_alloc, ntfs_malloc_tag);
+		IOFreeData(fn, fn_alloc);
 		/*
 		 * Invalidate negative cache entries in the directory.  We need
 		 * to do this because there may be negative cache entries
@@ -1533,7 +1534,7 @@ rm_err:
 		ntfs_error(vol->mp, "Failed to add directory entry (error "
 				"%d).", err);
 err:
-	OSFree(fn, fn_alloc, ntfs_malloc_tag);
+	IOFreeData(fn, fn_alloc);
 	return err;
 unl_err:
 	lck_rw_unlock_exclusive(&dir_ni->lock);
@@ -4491,7 +4492,7 @@ found_name:
 	 * that both mft records are in the same page.
 	 */
 	tfn_alloc = le32_to_cpu(a->value_length);
-	tfn = OSMalloc(tfn_alloc, ntfs_malloc_tag);
+	tfn = IOMallocData(tfn_alloc);
 	if (!tfn) {
 		/*
 		 * TODO: If @seek_type == FILENAME_WIN32 &&
@@ -5004,7 +5005,7 @@ enoent:
 		ntfs_debug("Done.");
 err:
 	if (name)
-		OSFree(name, sizeof(*name), ntfs_malloc_tag);
+		IOFreeType(name, ntfs_dir_lookup_name);
 	lck_rw_unlock_exclusive(&ni->lock);
 	lck_rw_unlock_exclusive(&dir_ni->lock);
 	return err;
@@ -5121,7 +5122,7 @@ static errno_t ntfs_link_internal(ntfs_inode *ni, ntfs_inode *dir_ni,
 	 * that both mft records are in the same page.
 	 */
 	fn_alloc = sizeof(FILENAME_ATTR) + NTFS_MAX_NAME_LEN * sizeof(ntfschar);
-	fn = OSMalloc(fn_alloc, ntfs_malloc_tag);
+	fn = IOMallocData(fn_alloc);
 	if (!fn) {
 		ntfs_error(vol->mp, "Failed to allocate memory for temporary "
 				"filename attribute.");
@@ -5382,7 +5383,7 @@ static errno_t ntfs_link_internal(ntfs_inode *ni, ntfs_inode *dir_ni,
 	ntfs_attr_search_ctx_put(ctx);
 	ntfs_mft_record_unmap(ni);
 	/* Free the temporary filename attribute. */
-	OSFree(fn, fn_alloc, ntfs_malloc_tag);
+	IOFreeData(fn, fn_alloc);
 	ntfs_debug("Done.");
 	return 0;
 put_err:
@@ -5417,7 +5418,7 @@ rm_err:
 	}
 err:
 	if (fn)
-		OSFree(fn, fn_alloc, ntfs_malloc_tag);
+		IOFreeData(fn, fn_alloc);
 	if (err != EEXIST)
 		ntfs_error(vol->mp, "Failed (error %d).", err);
 	else
@@ -5444,19 +5445,20 @@ err:
  */
 static int ntfs_vnop_link(struct vnop_link_args *a)
 {
-	ntfs_inode *ni, *dir_ni;
-	ntfs_volume *vol;
-	struct componentname *cn;
 	errno_t err;
 
-	ni = NTFS_I(a->a_vp);
-	vol = ni->vol;
-	dir_ni = NTFS_I(a->a_tdvp);
-	if (!dir_ni || !ni) {
-		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+	ntfs_inode *ni = NTFS_I(a->a_vp);
+    if (!ni) {
+        ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+        return EINVAL;
+    }
+	ntfs_inode *dir_ni = NTFS_I(a->a_tdvp);
+	if (!dir_ni) {
+		ntfs_debug("Entered with NULL dir ntfs_inode, aborting.");
 		return EINVAL;
 	}
-	cn = a->a_cnp;
+    ntfs_volume *vol = ni->vol;
+	struct componentname *cn = a->a_cnp;
 	ntfs_debug("Creating a hard link to mft_no 0x%llx, named %.*s in "
 			"directory mft_no 0x%llx.",
 			(unsigned long long)ni->mft_no, (int)cn->cn_namelen,
@@ -6096,7 +6098,7 @@ static int ntfs_vnop_rename(struct vnop_rename_args *a)
 	 * Note we allocate both source and target names with a single buffer
 	 * so we only have to call once into the allocator.
 	 */
-	ntfs_name_buf = OSMalloc(NTFS_MAX_NAME_LEN * 2, ntfs_malloc_tag);
+	ntfs_name_buf = IOMallocData(NTFS_MAX_NAME_LEN * 2);
 	if (!ntfs_name_buf) {
 		ntfs_debug("Not enough memory to allocate name buffer.");
 		err = ENOMEM;
@@ -6457,10 +6459,10 @@ src_enoent:
 	src_ni->link_count--;
 done:
 	if (src_name)
-		OSFree(src_name, sizeof(*src_name), ntfs_malloc_tag);
+		IOFreeType(src_name, ntfs_dir_lookup_name);
 	if (dst_name)
-		OSFree(dst_name, sizeof(*dst_name), ntfs_malloc_tag);
-	OSFree(ntfs_name_buf, NTFS_MAX_NAME_LEN * 2, ntfs_malloc_tag);
+		IOFreeType(dst_name, ntfs_dir_lookup_name);
+	IOFreeData(ntfs_name_buf, NTFS_MAX_NAME_LEN * 2);
 err:
 	/* If the destination inode existed we locked it so unlock it now. */
 	if (dst_ni)
@@ -7198,7 +7200,7 @@ static void ntfs_mft_record_free_all(ntfs_inode *base_ni, ntfs_inode *ni,
 						err);
 				NVolSetErrors(vol);
 			}
-			OSFree(rl.rl, rl.alloc, ntfs_malloc_tag);
+			IOFreeData(rl.rl, rl.alloc);
 		} else {
 			ntfs_error(vol->mp, "Cannot free some allocated space "
 					"belonging to mft_no 0x%llx because "
@@ -9902,7 +9904,7 @@ static int ntfs_vnop_listxattr(struct vnop_listxattr_args *args)
 	 * able to convert the name as well as a byte for the NULL terminator.
 	 */
 	utf8_size = NTFS_MAX_ATTR_NAME_LEN * 4 + 1;
-	utf8_name = OSMalloc(utf8_size, ntfs_malloc_tag);
+	utf8_name = IOMallocData(utf8_size);
 	if (!utf8_name) {
 		ntfs_error(vol->mp, "Failed to allocate name buffer.");
 		err = ENOMEM;
@@ -10081,7 +10083,7 @@ static int ntfs_vnop_listxattr(struct vnop_listxattr_args *args)
 		*args->a_size = size;
 	ntfs_debug("Done.");
 free_err:
-	OSFree(utf8_name, utf8_size, ntfs_malloc_tag);
+	IOFreeData(utf8_name, utf8_size);
 put_err:
 	ntfs_attr_search_ctx_put(ctx);
 unm_err:

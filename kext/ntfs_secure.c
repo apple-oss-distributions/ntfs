@@ -42,10 +42,9 @@
 
 #include <string.h>
 
-#include <libkern/OSMalloc.h>
-
 #include <kern/debug.h>
 #include <kern/locks.h>
+#include <IOKit/IOLib.h>
 
 #include "ntfs.h"
 #include "ntfs_attr.h"
@@ -170,7 +169,7 @@ errno_t ntfs_default_sds_entries_init(void)
 	 * this here as we otherwise would not know the size until we have
 	 * generated the SDS entry.
 	 */
-	sds = OSMalloc(0x60 * 4, ntfs_malloc_tag);
+	sds = IOMallocData(0x60 * 4);
 	if (!sds) {
 		ntfs_error(NULL, "Failed to allocate memory for the default "
 				"$Secure/$DATA/$SDS entries.");

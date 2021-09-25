@@ -41,11 +41,11 @@
 #include <sys/uio.h>
 #include <sys/types.h>
 
+#include <IOKit/IOLib.h>
+
 #include <mach/memory_object_types.h>
 
 #include <string.h>
-
-#include <libkern/OSMalloc.h>
 
 #include <kern/debug.h>
 #include <kern/locks.h>
@@ -821,7 +821,7 @@ do_next_cb:
 	 */
 	ntfs_debug("Found compressed compression block.");
 	if (!cb) {
-		cb = OSMalloc(cb_size, ntfs_malloc_tag);
+		cb = IOMallocData(cb_size);
 		if (!cb) {
 			ntfs_error(vol->mp, "Not enough memory to allocate "
 					"temporary buffer.");
@@ -888,7 +888,7 @@ next_cb:
 	if (uio)
 		uio_free(uio);
 	if (cb)
-		OSFree(cb, cb_size, ntfs_malloc_tag);
+		IOFreeData(cb, cb_size);
 	ntfs_debug("Done.");
 	return 0;
 cl_err:
@@ -907,7 +907,7 @@ err:
 	if (uio)
 		uio_free(uio);
 	if (cb)
-		OSFree(cb, cb_size, ntfs_malloc_tag);
+		IOFreeData(cb, cb_size);
 	ntfs_error(vol->mp, "Failed (error %d).", err);
 	return err;
 }

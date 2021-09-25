@@ -48,7 +48,7 @@
 
 #include <libkern/libkern.h>
 #include <libkern/OSAtomic.h>
-#include <libkern/OSMalloc.h>
+#include <IOKit/IOLib.h>
 
 #include <kern/debug.h>
 #include <kern/locks.h>
@@ -168,7 +168,7 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 		buf_mft_record = ni->mft_no & vol->mft_records_per_sector_mask;
 		buf_read_size = vol->sector_size;
 
-		dbuf = OSMalloc(vol->mft_record_size, ntfs_malloc_tag);
+		dbuf = IOMallocData(vol->mft_record_size);
 		if (!dbuf) {
 			ntfs_error(vol->mp, "Error while allocating %lu bytes "
 					"for mft record double buffer.",
@@ -259,7 +259,7 @@ buf_err:
 err:
 	if (dbuf) {
 		lck_mtx_unlock(&ni->buf_lock);
-		OSFree(dbuf, vol->mft_record_size, ntfs_malloc_tag);
+		IOFreeData(dbuf, vol->mft_record_size);
 	}
 	/*
 	 * Release the iocount reference on the $MFT vnode.  We can ignore the
@@ -351,7 +351,7 @@ void ntfs_mft_record_unmap(ntfs_inode *ni)
 			buf_brelse(buf);
 	}
 	if (dbuf) {
-		OSFree(dbuf, vol->mft_record_size, ntfs_malloc_tag);
+		IOFreeData(dbuf, vol->mft_record_size);
 		lck_mtx_unlock(&ni->buf_lock);
 	}
 	/*
@@ -482,7 +482,7 @@ map_err_out:
 		int new_size;
 
 		new_size = base_ni->extent_alloc + 4 * sizeof(ntfs_inode *);
-		tmp = OSMalloc(new_size, ntfs_malloc_tag);
+		tmp = IOMallocZero(new_size);
 		if (!tmp) {
 			ntfs_error(base_ni->vol->mp, "Failed to allocate "
 					"internal buffer.");
@@ -495,8 +495,7 @@ map_err_out:
 				memcpy(tmp, base_ni->extent_nis,
 						base_ni->nr_extents *
 						sizeof(ntfs_inode *));
-			OSFree(base_ni->extent_nis, base_ni->extent_alloc,
-					ntfs_malloc_tag);
+			IOFree(base_ni->extent_nis, base_ni->extent_alloc);
 		}
 		base_ni->extent_alloc = new_size;
 		base_ni->extent_nis = tmp;
@@ -1102,7 +1101,7 @@ static errno_t ntfs_mft_bitmap_extend_allocation_nolock(ntfs_volume *vol)
 						"%d).%s", err2, es);
 				NVolSetErrors(vol);
 			}
-			OSFree(runlist.rl, runlist.alloc, ntfs_malloc_tag);
+			IOFreeData(runlist.rl, runlist.alloc);
 			return err;
 		}
 		ntfs_debug("Adding one run to mft bitmap.");
@@ -1564,7 +1563,7 @@ static errno_t ntfs_mft_data_extend_allocation_nolock(ntfs_volume *vol)
 					"cluster(s) (error %d).%s", err2, es);
 			NVolSetErrors(vol);
 		}
-		OSFree(runlist.rl, runlist.alloc, ntfs_malloc_tag);
+		IOFreeData(runlist.rl, runlist.alloc);
 		return err;
 	}
 	ntfs_debug("Allocated %lld clusters.", (long long)nr);
@@ -3318,8 +3317,7 @@ errno_t ntfs_extent_mft_record_free(ntfs_inode *base_ni, ntfs_inode *ni,
 			if (base_ni->nr_extents < 0)
 				panic("%s(): base_ni->nr_extents < 0\n",
 						__FUNCTION__);
-			OSFree(base_ni->extent_nis, base_ni->extent_alloc,
-					ntfs_malloc_tag);
+            IOFree(base_ni->extent_nis, base_ni->extent_alloc);
 			base_ni->extent_alloc = 0;
 		}
 		err = 0;
